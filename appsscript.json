@@ -1,0 +1,29 @@
+{
+  "timeZone": "Asia/Tokyo",
+  "dependencies": {},
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "addOns": {
+    "calendar": {
+      "homepageTrigger": {
+        "runFunction": "onHomepage",
+        "enabled": true
+      },
+      "currentEventAccess": "READ_WRITE"
+    },
+    "common": {
+      "name": "Quick Meeting AI",
+      "logoUrl": "https://www.gstatic.com/images/icons/material/system/1x/event_note_black_48dp.png",
+      "layoutProperties": {
+        "primaryColor": "#4285F4"
+      }
+    }
+  },
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/calendar.addons.execute",
+    "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/script.locale",
+    "https://www.googleapis.com/auth/calendar.addons.current.event.read",
+    "https://www.googleapis.com/auth/calendar.addons.current.event.write"
+  ]
+}
