@@ -1,0 +1,23 @@
+{
+  "name": "gws-calendar-addon",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/hnaraki/gws-calendar-addon#readme",
+  "bugs": {
+    "url": "https://github.com/hnaraki/gws-calendar-addon/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hnaraki/gws-calendar-addon.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "@types/google-apps-script": "^2.0.8"
+  }
+}

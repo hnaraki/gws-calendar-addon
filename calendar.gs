@@ -15,14 +15,13 @@ function buildCard(defaultValues = {}, statusMessage = "") {
 
   // --- ヘッダー設定 ---
   const header = CardService.newCardHeader()
-    .setTitle("スマート会議スケジューラ")
-    //.setSubtitle("AIプロンプトで入力を補助");
+    .setTitle("スマート会議スケジューラ");
   card.setHeader(header);
 
   // --- 1. 入力セクション (ゲスト、時間、日時) ---
   const section1 = CardService.newCardSection();
 
-// 1-0. 会議タイトル入力欄（★追加箇所★）
+  // 1-0. 会議タイトル入力欄
   const titleValue = defaultValues.title || "";
   const titleInput = CardService.newTextInput()
     .setFieldName("title")
@@ -36,7 +35,32 @@ function buildCard(defaultValues = {}, statusMessage = "") {
     .setFieldName("guests")
     .setTitle("ゲスト (メールアドレス)")
     .setHint("user1@example.com, user2@example.com")
-    .setValue(guestValue);
+    .setValue(guestValue)
+    .setOnChangeAction(CardService.newAction().setFunctionName("onGuestInputChange"));
+
+  // ゲスト一覧プレビュー（guestInput の直後に表示）
+  // カンマ区切りで分割して空要素を除去
+  const guestList = (guestValue || "")
+    .split(',')
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+
+  if (guestList.length > 0) {
+    // 小さいラベルを出して個別に表示
+    const guestLabel = CardService.newTextParagraph().setText("入力済みのゲスト:");
+    section1.addWidget(guestLabel);
+
+    guestList.forEach(email => {
+      const dt = CardService.newDecoratedText()
+        .setText(email)
+        .setWrapText(true);
+      section1.addWidget(dt);
+    });
+  } else {
+    // 未入力時のヒント表示（任意）
+    const guestHint = CardService.newTextParagraph().setText("ゲストをカンマ区切りで入力してください。");
+    section1.addWidget(guestHint);
+  }
 
   // 1-2. 会議時間 (デフォルト30分)
   const durationValue = defaultValues.duration || "30";
@@ -50,28 +74,29 @@ function buildCard(defaultValues = {}, statusMessage = "") {
     .addItem("90分", "90", durationValue === "90")
     .addItem("120分", "120", durationValue === "120");
 
-// 1-3. 日時 (デフォルトは10:00)
+  // 1-3. 日時 (デフォルトは10:00)
   let defaultDateMs;
   if (defaultValues.startTimeMs) {
     defaultDateMs = parseInt(defaultValues.startTimeMs);
   } else {
     const now = new Date();
-    // 基準時刻を今日の10:00に設定
     const today10AM = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 10, 0, 0, 0);
-    
-    // 現在時刻が10:00を過ぎていたら、明日10:00に設定
     if (now.getTime() > today10AM.getTime()) {
       today10AM.setDate(today10AM.getDate() + 1);
     }
-    
     defaultDateMs = today10AM.getTime();
   }
   
-  // DateTimePickerの再導入（修正済みの構文）
   const dateTimeInput = CardService.newDateTimePicker(); 
   dateTimeInput.setFieldName("startTimeMs"); 
   dateTimeInput.setTitle("開始日時");
-  //dateTimeInput.setValueInMs(defaultDateMs); 
+  // setValueInMs が存在する環境でのみ呼ぶ（存在しない場合はログを出してスキップ）
+  if (typeof dateTimeInput.setValueInMs === 'function') {
+    dateTimeInput.setValueInMs(defaultDateMs);
+  } else {
+    Logger.log('DateTimePicker.setValueInMs is not available in this runtime — skipping default value.');
+    console.log('DateTimePicker.setValueInMs is not available in this runtime — skipping default value.');
+  } 
   
   section1.addWidget(titleInput);
   section1.addWidget(guestInput);
@@ -82,14 +107,12 @@ function buildCard(defaultValues = {}, statusMessage = "") {
   // --- 2. 詳細セクション (場所、説明) ---
   const section2 = CardService.newCardSection();
 
-  // 2-1. 場所
   const locationValue = defaultValues.location || "";
   const locationInput = CardService.newTextInput()
     .setFieldName("location")
     .setTitle("会議室または場所")
     .setValue(locationValue);
 
-  // 2-2. 説明
   const descValue = defaultValues.description || "";
   const descInput = CardService.newTextInput()
     .setFieldName("description")
@@ -108,9 +131,9 @@ function buildCard(defaultValues = {}, statusMessage = "") {
   const promptInput = CardService.newTextInput()
     .setFieldName("prompt")
     .setTitle("指示を入力して反映")
-    .setHint("例: 「明日の14時から60分、渋谷でランチMTG」");
+    .setHint("例: 「明日の14時から60分、渋谷でランチMTG」")
+    .setMultiline(true);
 
-  // アクション: プロンプトを解析してフォームに反映する
   const updateAction = CardService.newAction().setFunctionName("onApplyPrompt");
   const updateButton = CardService.newTextButton()
     .setText("↑ 上記の内容をフォームに反映")
@@ -128,7 +151,6 @@ function buildCard(defaultValues = {}, statusMessage = "") {
     .setText("カレンダーに予定を作成")
     .setOnClickAction(createAction);
   
-  // ステータスメッセージがあれば表示
   if (statusMessage) {
     const msgWidget = CardService.newTextParagraph().setText(`<b>${statusMessage}</b>`);
     footerSection.addWidget(msgWidget);
@@ -194,48 +216,5 @@ function onApplyPrompt(e) {
     .build();
 }
 
-/**
- * アクション: 最終的にカレンダーイベントを作成する
- */
-function onCreateEvent(e) {
-  const formInputs = e.commonEventObject.formInputs;
-
-  // 値の取得
-  const guests = formInputs.guests ? formInputs.guests.stringInputs.value[0] : "";
-  const durationMin = parseInt(formInputs.duration ? formInputs.duration.stringInputs.value[0] : "30");
-  const startTimeMs = parseInt(formInputs.startTimeMs.dateInput.msSinceEpoch);
-  const location = formInputs.location ? formInputs.location.stringInputs.value[0] : "";
-  const description = formInputs.description ? formInputs.description.stringInputs.value[0] : "";
-
-  // 終了時間の計算
-  const startTime = new Date(startTimeMs);
-  const endTime = new Date(startTime.getTime() + (durationMin * 60 * 1000));
-
-  try {
-    // イベント作成
-    const options = {
-      location: location,
-      description: description,
-      guests: guests
-    };
-
-    const event = CalendarApp.createEvent(
-      "新規ミーティング", // タイトル(必要であれば入力欄を追加してください)
-      startTime,
-      endTime,
-      options
-    );
-
-    // 成功通知とカードのリセット
-    const successCard = buildCard({}, `🎉 予定を作成しました: ${startTime.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}`);
-    return CardService.newActionResponseBuilder()
-      .setNotification(CardService.newNotification().setText("イベントを作成しました"))
-      .setNavigation(CardService.newNavigation().updateCard(successCard))
-      .build();
-
-  } catch (err) {
-    return CardService.newActionResponseBuilder()
-      .setNotification(CardService.newNotification().setText("エラー: " + err.toString()))
-      .build();
-  }
+/
 }
